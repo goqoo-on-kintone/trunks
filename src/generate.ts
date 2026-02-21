@@ -116,6 +116,23 @@ async function buildAuthArgs(config: Config): Promise<DtsGenArgs> {
   return args;
 }
 
+// kintoneのエラーレスポンスを抽出
+function extractKintoneError(output: string): { code: string; id: string; message: string } | null {
+  // 形式: code: 'GAIA_AP15' または "code": "GAIA_AP15"
+  const codeMatch = output.match(/code:\s*'([^']+)'/) ?? output.match(/"code":\s*"([^"]+)"/);
+  const idMatch = output.match(/id:\s*'([^']+)'/) ?? output.match(/"id":\s*"([^"]+)"/);
+  const messageMatch = output.match(/message:\s*'([^']+)'/) ?? output.match(/"message":\s*"([^"]+)"/);
+
+  const code = codeMatch?.[1];
+  const id = idMatch?.[1];
+  const message = messageMatch?.[1];
+
+  if (code && message) {
+    return { code, id: id ?? '', message };
+  }
+  return null;
+}
+
 // 単一アプリの型定義を生成
 function generateForApp(
   appName: string,
@@ -123,14 +140,15 @@ function generateForApp(
   config: Config,
   authArgs: DtsGenArgs,
   outDir: string
-): Promise<void> {
-  return new Promise((resolve, reject) => {
+): Promise<{ success: boolean; output: string }> {
+  return new Promise((resolve) => {
+    const outputPath = `${outDir}/${kebabCase(appName)}-fields.d.ts`;
     const args: DtsGenArgs = {
       'base-url': `https://${config.host}`,
       ...authArgs,
       'type-name': `${pascalCase(appName)}Fields`,
       'app-id': String(appId),
-      'output': `${outDir}/${kebabCase(appName)}-fields.d.ts`,
+      'output': outputPath,
     };
 
     // undefined値をフィルタリングして引数配列を作成
@@ -140,20 +158,39 @@ function generateForApp(
 
     const proc = spawn('npx', ['kintone-dts-gen', ...cliArgs], {
       cwd: process.cwd(),
-      stdio: 'inherit',
+      stdio: ['inherit', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    proc.stdout?.on('data', (data) => {
+      stdout += data.toString();
+    });
+    proc.stderr?.on('data', (data) => {
+      stderr += data.toString();
     });
 
     proc.on('close', (code) => {
       if (code !== 0) {
-        // dts-genはエラー時も0を返すことがあるので警告のみ
-        console.error(chalk.yellow(`Warning: kintone-dts-gen exited with code ${code} for ${appName}`));
+        // stdoutとstderr両方からエラー情報を探す
+        const output = stdout + stderr;
+        const kintoneError = extractKintoneError(output);
+        if (kintoneError) {
+          console.error(chalk.red(`Error [${appName}]:`), kintoneError.message);
+          console.error(chalk.gray(`  code: ${kintoneError.code}, id: ${kintoneError.id}`));
+        } else {
+          console.error(chalk.red(`Error [${appName}]:`), `kintone-dts-gen exited with code ${code}`);
+        }
+        resolve({ success: false, output: outputPath });
+      } else {
+        console.info(`${chalk.cyan('info')} ${chalk.magenta('Created')} ${chalk.green(outputPath)}`);
+        resolve({ success: true, output: outputPath });
       }
-      console.info(`${chalk.cyan('info')} ${chalk.magenta('Created')} ${chalk.green(args['output'])}`);
-      resolve();
     });
 
     proc.on('error', (err) => {
-      reject(err);
+      console.error(chalk.red(`Error [${appName}]:`), err.message);
+      resolve({ success: false, output: outputPath });
     });
   });
 }
@@ -169,9 +206,18 @@ export async function generate(config: Config): Promise<void> {
   console.info(chalk.cyan(`Generating type definitions for ${apps.length} app(s)...`));
 
   // 順次実行（並列だとコンソール出力が混在する）
+  const results: { success: boolean; output: string }[] = [];
   for (const [appName, appId] of apps) {
-    await generateForApp(appName, appId, config, authArgs, outDir);
+    const result = await generateForApp(appName, appId, config, authArgs, outDir);
+    results.push(result);
   }
 
-  console.info(chalk.green('Done!'));
+  const successCount = results.filter((r) => r.success).length;
+  const failCount = results.length - successCount;
+
+  if (failCount > 0) {
+    console.info(chalk.yellow(`\nCompleted with ${failCount} error(s). (${successCount}/${results.length} succeeded)`));
+  } else {
+    console.info(chalk.green('Done!'));
+  }
 }
