@@ -57,6 +57,8 @@ export type Config = {
   guestSpaceId?: number;
   // 生成する型のnamespace（デフォルト: "kintone.types"）
   namespace?: string;
+  // 生成後にPrettierでフォーマットするか（デフォルト: false）
+  format?: boolean;
 };
 
 // 設定ファイルの型（defineConfigのため）

@@ -1,10 +1,37 @@
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import { mkdirSync } from 'fs';
 import * as readline from 'readline';
 import chalk from 'chalk';
 import { kebabCase, pascalCase } from 'change-case';
 import type { AgentOptions, Config } from './types.js';
 import { getOauthToken } from './oauth.js';
+
+// npx prettierが実行可能かチェック
+function isPrettierAvailable(): boolean {
+  const result = spawnSync('npx', ['prettier', '--version'], {
+    stdio: 'pipe',
+    encoding: 'utf-8',
+  });
+  return result.status === 0;
+}
+
+// Prettierでファイルをフォーマット
+function formatWithPrettier(filePath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const proc = spawn('npx', ['prettier', '--write', filePath], {
+      cwd: process.cwd(),
+      stdio: 'pipe',
+    });
+
+    proc.on('close', (code) => {
+      resolve(code === 0);
+    });
+
+    proc.on('error', () => {
+      resolve(false);
+    });
+  });
+}
 
 type DtsGenArgs = Record<string, string | undefined>;
 
@@ -218,6 +245,9 @@ export async function generate(config: Config): Promise<void> {
   const authArgs = await buildAuthArgs(config);
   const apps = Object.entries(config.apps);
 
+  // format: trueの場合のみPrettierを使用
+  const usePrettier = config.format === true && isPrettierAvailable();
+
   console.info(chalk.cyan(`Generating type definitions for ${apps.length} app(s)...`));
 
   // 順次実行（並列だとコンソール出力が混在する）
@@ -225,6 +255,11 @@ export async function generate(config: Config): Promise<void> {
   for (const [appName, appId] of apps) {
     const result = await generateForApp(appName, appId, config, authArgs, outDir);
     results.push(result);
+
+    // 成功したファイルをPrettierでフォーマット
+    if (result.success && usePrettier) {
+      await formatWithPrettier(result.output);
+    }
   }
 
   const successCount = results.filter((r) => r.success).length;
