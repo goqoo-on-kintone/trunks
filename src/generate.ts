@@ -3,7 +3,8 @@ import { mkdirSync } from 'fs';
 import * as readline from 'readline';
 import chalk from 'chalk';
 import { kebabCase, pascalCase } from 'change-case';
-import type { Config } from './types.js';
+import type { AgentOptions, Config } from './types.js';
+import { getOauthToken } from './oauth.js';
 
 type DtsGenArgs = Record<string, string | undefined>;
 
@@ -94,9 +95,16 @@ async function buildAuthArgs(config: Config): Promise<DtsGenArgs> {
       args['password'] = password;
       break;
     }
-    case 'oauth':
-      // OAuth認証はトークン取得処理が必要（将来的に対応）
-      throw new Error('OAuth authentication is not yet implemented');
+    case 'oauth': {
+      // Gyumaを使ってOAuthトークンを取得
+      const agentOptions: AgentOptions = {
+        proxy: config.proxy ? `http://${config.proxy.host}:${config.proxy.port}` : undefined,
+        pfx: config.pfx,
+      };
+      const oauthToken = await getOauthToken(config.host, config.auth.scope, agentOptions);
+      args['oauth-token'] = oauthToken;
+      break;
+    }
     case 'api-token':
       args['api-token'] = config.auth.token;
       break;

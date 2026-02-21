@@ -28,6 +28,18 @@ export type BasicAuthConfig = {
   password: string;
 };
 
+// クライアント証明書設定（PFX/PKCS#12形式）
+export type PfxConfig = {
+  filepath: string;
+  password: string;
+};
+
+// Gyuma用のエージェントオプション
+export type AgentOptions = {
+  proxy?: string;
+  pfx?: PfxConfig;
+};
+
 // メイン設定
 export type Config = {
   host: string; // Kintone環境のホスト（例: "example.cybozu.com"）
@@ -35,6 +47,8 @@ export type Config = {
   auth: Auth;
   proxy?: ProxyConfig;
   basicAuth?: BasicAuthConfig;
+  // クライアント証明書（OAuth使用時にGyumaへ渡す）
+  pfx?: PfxConfig;
   // 出力ディレクトリ（デフォルト: "dts"）
   outDir?: string;
   // プレビュー環境を参照する場合はtrue（デフォルト: false）
