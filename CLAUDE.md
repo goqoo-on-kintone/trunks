@@ -38,13 +38,26 @@ type Config = {
 ## 開発コマンド
 
 ```bash
-yarn install          # パッケージインストール
+yarn install             # パッケージインストール
+yarn build               # TypeScriptビルド
+yarn dev                 # ウォッチモードでビルド
 yarn prettier --write .  # コードフォーマット
+```
+
+## ソース構造
+
+```
+src/
+├── cli.ts      # CLIエントリーポイント（Commander.js）
+├── config.ts   # 設定ファイル読み込み（jiti使用）
+├── generate.ts # dts-gen実行処理
+├── index.ts    # エクスポート
+└── types.ts    # 型定義・defineConfig
 ```
 
 ## 技術スタック
 
 - **ランタイム:** Node.js >= 20
 - **パッケージマネージャー:** Yarn
-- **主要依存:** @kintone/dts-gen
+- **主要依存:** @kintone/dts-gen, Commander.js, jiti, change-case, chalk
 - **フォーマッタ:** Prettier（シングルクォート、120文字/行）

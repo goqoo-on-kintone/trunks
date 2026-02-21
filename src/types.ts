@@ -1,0 +1,43 @@
+// 認証設定
+export type PasswordAuth = {
+  type: 'password';
+  // 環境変数 KINTONE_USERNAME, KINTONE_PASSWORD から取得
+};
+
+export type OAuthAuth = {
+  type: 'oauth';
+  scope?: string;
+};
+
+export type ApiTokenAuth = {
+  type: 'api-token';
+  token: string;
+};
+
+export type Auth = PasswordAuth | OAuthAuth | ApiTokenAuth;
+
+// プロキシ設定
+export type ProxyConfig = {
+  host: string;
+  port: number;
+};
+
+// Basic認証設定
+export type BasicAuthConfig = {
+  username: string;
+  password: string;
+};
+
+// メイン設定
+export type Config = {
+  host: string; // Kintone環境のホスト（例: "example.cybozu.com"）
+  apps: Record<string, number>; // { appName: appId }
+  auth: Auth;
+  proxy?: ProxyConfig;
+  basicAuth?: BasicAuthConfig;
+  // 出力ディレクトリ（デフォルト: "dts"）
+  outDir?: string;
+};
+
+// 設定ファイルの型（defineConfigのため）
+export const defineConfig = (config: Config): Config => config;

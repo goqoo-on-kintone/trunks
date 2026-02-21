@@ -1,18 +1,33 @@
 {
   "name": "@goqoo/trunks",
   "version": "0.1.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A CLI wrapper for @kintone/dts-gen that generates type definitions for multiple Kintone apps",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "trunks": "dist/cli.js"
+  },
   "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["kintone", "typescript", "dts-gen", "cli"],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
-    "prettier": "^3.8.1"
+    "@types/node": "^22.0.0",
+    "prettier": "^3.8.1",
+    "typescript": "^5.7.0"
   },
   "dependencies": {
-    "@kintone/dts-gen": "^9.0.2"
+    "@kintone/dts-gen": "^9.0.2",
+    "chalk": "^5.4.0",
+    "change-case": "^5.4.0",
+    "commander": "^13.0.0",
+    "jiti": "^2.4.0"
   }
 }
