@@ -1,23 +1,99 @@
 import { spawn } from 'child_process';
 import { mkdirSync } from 'fs';
+import * as readline from 'readline';
 import chalk from 'chalk';
 import { kebabCase, pascalCase } from 'change-case';
 import type { Config } from './types.js';
 
 type DtsGenArgs = Record<string, string | undefined>;
 
+// 標準入力からテキストを取得
+function prompt(question: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
+// 標準入力からパスワードを取得（入力を隠す）
+function promptPassword(question: string): Promise<string> {
+  return new Promise((resolve) => {
+    process.stdout.write(question);
+
+    const stdin = process.stdin;
+    if (!stdin.isTTY) {
+      // TTYでない場合は通常の入力
+      const rl = readline.createInterface({ input: stdin, output: process.stdout });
+      rl.question('', (answer) => {
+        rl.close();
+        resolve(answer);
+      });
+      return;
+    }
+
+    // TTYの場合はraw modeで入力を隠す
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding('utf8');
+
+    let password = '';
+    const onData = (char: string) => {
+      if (char === '\n' || char === '\r' || char === '\u0004') {
+        // Enter or Ctrl+D
+        stdin.setRawMode(false);
+        stdin.removeListener('data', onData);
+        stdin.pause();
+        process.stdout.write('\n');
+        resolve(password);
+      } else if (char === '\u0003') {
+        // Ctrl+C
+        stdin.setRawMode(false);
+        process.stdout.write('\n');
+        process.exit(1);
+      } else if (char === '\u007F' || char === '\b') {
+        // Backspace
+        password = password.slice(0, -1);
+      } else {
+        password += char;
+      }
+    };
+
+    stdin.on('data', onData);
+  });
+}
+
 // 認証引数を構築
-function buildAuthArgs(config: Config): DtsGenArgs {
+async function buildAuthArgs(config: Config): Promise<DtsGenArgs> {
   const args: DtsGenArgs = {};
 
   switch (config.auth.type) {
-    case 'password':
-      args['username'] = process.env.KINTONE_USERNAME;
-      args['password'] = process.env.KINTONE_PASSWORD;
-      if (!args['username'] || !args['password']) {
-        throw new Error('KINTONE_USERNAME and KINTONE_PASSWORD environment variables are required for password auth');
+    case 'password': {
+      let username = process.env.KINTONE_USERNAME;
+      let password = process.env.KINTONE_PASSWORD;
+
+      // 環境変数が未設定の場合は標準入力で取得
+      if (!username) {
+        username = await prompt('Kintone Username: ');
       }
+      if (!password) {
+        password = await promptPassword('Kintone Password: ');
+      }
+
+      if (!username || !password) {
+        throw new Error('Username and password are required for password auth');
+      }
+
+      args['username'] = username;
+      args['password'] = password;
       break;
+    }
     case 'oauth':
       // OAuth認証はトークン取得処理が必要（将来的に対応）
       throw new Error('OAuth authentication is not yet implemented');
@@ -87,7 +163,7 @@ export async function generate(config: Config): Promise<void> {
   const outDir = config.outDir ?? 'dts';
   mkdirSync(outDir, { recursive: true });
 
-  const authArgs = buildAuthArgs(config);
+  const authArgs = await buildAuthArgs(config);
   const apps = Object.entries(config.apps);
 
   console.info(chalk.cyan(`Generating type definitions for ${apps.length} app(s)...`));

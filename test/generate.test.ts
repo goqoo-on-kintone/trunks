@@ -13,20 +13,8 @@ describe('generate', () => {
     process.env = originalEnv;
   });
 
-  it('パスワード認証で環境変数が設定されていない場合はエラー', async () => {
-    delete process.env.KINTONE_USERNAME;
-    delete process.env.KINTONE_PASSWORD;
-
-    const config: Config = {
-      host: 'example.cybozu.com',
-      apps: { customer: 1 },
-      auth: { type: 'password' },
-    };
-
-    await expect(generate(config)).rejects.toThrow(
-      'KINTONE_USERNAME and KINTONE_PASSWORD environment variables are required'
-    );
-  });
+  // NOTE: パスワード認証で環境変数が未設定の場合は標準入力を求めるため、
+  // 自動テストでは検証が困難。手動テストで確認する。
 
   it('OAuth認証はまだ未実装エラーを投げる', async () => {
     const config: Config = {
