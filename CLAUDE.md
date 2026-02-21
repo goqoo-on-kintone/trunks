@@ -41,6 +41,8 @@ type Config = {
 yarn install             # パッケージインストール
 yarn build               # TypeScriptビルド
 yarn dev                 # ウォッチモードでビルド
+yarn test                # テスト実行（Jest + ESM）
+yarn test:watch          # ウォッチモードでテスト
 yarn prettier --write .  # コードフォーマット
 ```
 
@@ -48,11 +50,16 @@ yarn prettier --write .  # コードフォーマット
 
 ```
 src/
-├── cli.ts      # CLIエントリーポイント（Commander.js）
-├── config.ts   # 設定ファイル読み込み（jiti使用）
-├── generate.ts # dts-gen実行処理
-├── index.ts    # エクスポート
-└── types.ts    # 型定義・defineConfig
+├── cli.ts       # CLIエントリーポイント（Commander.js）
+├── config.ts    # 設定ファイル読み込み（jiti使用）
+├── generate.ts  # dts-gen実行処理
+├── index.ts     # エクスポート
+└── types.ts     # 型定義・defineConfig
+
+test/
+├── config.test.ts   # configのテスト
+├── generate.test.ts # generateのテスト
+└── types.test.ts    # typesのテスト
 ```
 
 ## 技術スタック
@@ -60,4 +67,5 @@ src/
 - **ランタイム:** Node.js >= 20
 - **パッケージマネージャー:** Yarn
 - **主要依存:** @kintone/dts-gen, Commander.js, jiti, change-case, chalk
+- **テスト:** Jest + ts-jest（ESMモード）
 - **フォーマッタ:** Prettier（シングルクォート、120文字/行）
