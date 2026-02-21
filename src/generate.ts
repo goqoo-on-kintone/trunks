@@ -156,6 +156,11 @@ function generateForApp(
       .filter(([, value]) => value !== undefined)
       .map(([key, value]) => `--${key}=${value}`);
 
+    // プレビュー環境の場合は--previewフラグを追加
+    if (config.preview) {
+      cliArgs.push('--preview');
+    }
+
     const proc = spawn('npx', ['kintone-dts-gen', ...cliArgs], {
       cwd: process.cwd(),
       stdio: ['inherit', 'pipe', 'pipe'],

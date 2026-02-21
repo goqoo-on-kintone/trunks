@@ -56,6 +56,17 @@ describe('defineConfig', () => {
     expect(config.outDir).toBe('types');
   });
 
+  it('プレビュー環境の設定を返す', () => {
+    const config = defineConfig({
+      host: 'example.cybozu.com',
+      apps: { customer: 1 },
+      auth: { type: 'api-token', token: 'test-token' },
+      preview: true,
+    });
+
+    expect(config.preview).toBe(true);
+  });
+
   it('型チェックが正しく機能する', () => {
     // 型レベルでのテスト（コンパイルが通ればOK）
     const passwordConfig: Config = {

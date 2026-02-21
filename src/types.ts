@@ -37,6 +37,8 @@ export type Config = {
   basicAuth?: BasicAuthConfig;
   // 出力ディレクトリ（デフォルト: "dts"）
   outDir?: string;
+  // プレビュー環境を参照する場合はtrue（デフォルト: false）
+  preview?: boolean;
 };
 
 // 設定ファイルの型（defineConfigのため）
