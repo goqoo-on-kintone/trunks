@@ -1,9 +1,14 @@
 #!/usr/bin/env node
+import { createRequire } from 'module';
 import { config as loadEnv } from 'dotenv';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { loadConfig } from './config.js';
 import { generate } from './generate.js';
+
+// package.jsonからバージョンを取得
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json') as { version: string };
 
 // .envファイルがあれば環境変数として読み込む
 loadEnv();
@@ -13,7 +18,7 @@ const program = new Command();
 program
   .name('trunks')
   .description('Generate TypeScript type definitions for multiple Kintone apps')
-  .version('0.1.0');
+  .version(version);
 
 program
   .command('generate', { isDefault: true })
