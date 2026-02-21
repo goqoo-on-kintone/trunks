@@ -132,9 +132,21 @@ async function buildAuthArgs(config: Config): Promise<DtsGenArgs> {
       args['oauth-token'] = oauthToken;
       break;
     }
-    case 'api-token':
-      args['api-token'] = config.auth.token;
+    case 'api-token': {
+      // 設定ファイル → 環境変数 → 標準入力の優先順位
+      let token = config.auth.token ?? process.env.KINTONE_API_TOKEN;
+
+      if (!token) {
+        token = await promptPassword('Kintone API Token: ');
+      }
+
+      if (!token) {
+        throw new Error('API token is required for api-token auth');
+      }
+
+      args['api-token'] = token;
       break;
+    }
   }
 
   // Basic認証

@@ -11,7 +11,8 @@ export type OAuthAuth = {
 
 export type ApiTokenAuth = {
   type: 'api-token';
-  token: string;
+  // 環境変数 KINTONE_API_TOKEN から取得、または標準入力
+  token?: string;
 };
 
 export type Auth = PasswordAuth | OAuthAuth | ApiTokenAuth;
