@@ -1,8 +1,12 @@
 #!/usr/bin/env node
+import { config as loadEnv } from 'dotenv';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { loadConfig } from './config.js';
 import { generate } from './generate.js';
+
+// .envファイルがあれば環境変数として読み込む
+loadEnv();
 
 const program = new Command();
 

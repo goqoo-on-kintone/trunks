@@ -103,10 +103,11 @@ async function buildAuthArgs(config: Config): Promise<DtsGenArgs> {
 
   switch (config.auth.type) {
     case 'password': {
-      let username = process.env.KINTONE_USERNAME;
-      let password = process.env.KINTONE_PASSWORD;
+      // 設定ファイル → 環境変数 → 標準入力の優先順位
+      let username = config.auth.username ?? process.env.KINTONE_USERNAME;
+      let password = config.auth.password ?? process.env.KINTONE_PASSWORD;
 
-      // 環境変数が未設定の場合は標準入力で取得
+      // 未設定の場合は標準入力で取得
       if (!username) {
         username = await prompt('Kintone Username: ');
       }

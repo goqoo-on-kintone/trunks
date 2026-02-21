@@ -1,7 +1,9 @@
 // 認証設定
 export type PasswordAuth = {
   type: 'password';
-  // 環境変数 KINTONE_USERNAME, KINTONE_PASSWORD から取得
+  // 設定ファイルに直書き、環境変数、または標準入力から取得
+  username?: string;
+  password?: string;
 };
 
 export type OAuthAuth = {
