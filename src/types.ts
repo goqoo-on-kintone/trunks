@@ -39,6 +39,10 @@ export type Config = {
   outDir?: string;
   // プレビュー環境を参照する場合はtrue（デフォルト: false）
   preview?: boolean;
+  // ゲストスペースID（ゲストスペース内のアプリの場合に指定）
+  guestSpaceId?: number;
+  // 生成する型のnamespace（デフォルト: "kintone.types"）
+  namespace?: string;
 };
 
 // 設定ファイルの型（defineConfigのため）

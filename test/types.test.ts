@@ -67,6 +67,28 @@ describe('defineConfig', () => {
     expect(config.preview).toBe(true);
   });
 
+  it('ゲストスペースの設定を返す', () => {
+    const config = defineConfig({
+      host: 'example.cybozu.com',
+      apps: { customer: 1 },
+      auth: { type: 'api-token', token: 'test-token' },
+      guestSpaceId: 5,
+    });
+
+    expect(config.guestSpaceId).toBe(5);
+  });
+
+  it('namespaceの設定を返す', () => {
+    const config = defineConfig({
+      host: 'example.cybozu.com',
+      apps: { customer: 1 },
+      auth: { type: 'api-token', token: 'test-token' },
+      namespace: 'myapp.types',
+    });
+
+    expect(config.namespace).toBe('myapp.types');
+  });
+
   it('型チェックが正しく機能する', () => {
     // 型レベルでのテスト（コンパイルが通ればOK）
     const passwordConfig: Config = {

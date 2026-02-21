@@ -149,6 +149,8 @@ function generateForApp(
       'type-name': `${pascalCase(appName)}Fields`,
       'app-id': String(appId),
       'output': outputPath,
+      'guest-space-id': config.guestSpaceId !== undefined ? String(config.guestSpaceId) : undefined,
+      'namespace': config.namespace,
     };
 
     // undefined値をフィルタリングして引数配列を作成
