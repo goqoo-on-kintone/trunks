@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 const { version } = require('../package.json') as { version: string };
 
 // .envファイルがあれば環境変数として読み込む
-loadEnv();
+loadEnv({ quiet: true });
 
 const program = new Command();
 
