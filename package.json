@@ -11,5 +11,8 @@
   "license": "MIT",
   "devDependencies": {
     "prettier": "^3.8.1"
+  },
+  "dependencies": {
+    "@kintone/dts-gen": "^9.0.2"
   }
 }
