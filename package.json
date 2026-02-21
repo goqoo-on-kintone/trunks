@@ -1,6 +1,6 @@
 {
   "name": "@goqoo/trunks",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "A CLI wrapper for @kintone/dts-gen that generates type definitions for multiple Kintone apps",
   "type": "module",
   "main": "dist/index.js",
