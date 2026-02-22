@@ -17,6 +17,16 @@ A CLI wrapper for [@kintone/dts-gen](https://github.com/kintone/js-sdk/tree/main
 
 ## Quick Start
 
+### Using init command
+
+```bash
+npx @goqoo/trunks init
+```
+
+This will interactively create a `trunks.config.ts` file.
+
+### Manual setup
+
 1. Create a configuration file `trunks.config.ts` in your project root:
 
 ```typescript
@@ -159,15 +169,53 @@ pfx: {
 },
 ```
 
-## CLI Options
+## CLI
+
+### Commands
 
 ```bash
-trunks [options]
+trunks init              # Create trunks.config.ts interactively
+trunks generate          # Generate type definitions (default command)
+trunks                   # Same as 'trunks generate'
+```
+
+### Options
+
+```bash
+trunks generate [options]
 
 Options:
-  -c, --config <path>  Path to config file (default: auto-detect)
-  -h, --help           Display help
-  -V, --version        Display version
+  -c, --config <path>               Path to config file
+  -H, --host <host>                 Kintone host (e.g., example.cybozu.com)
+  -a, --app <name:id>               App to generate (can be repeated)
+  -A, --auth-type <type>            Auth type: password, api-token, oauth
+  -u, --username <username>         Kintone username (for password auth)
+  -p, --password <password>         Kintone password (for password auth)
+  -t, --api-token <token>           Kintone API token (for api-token auth)
+  --oauth-scope <scope>             OAuth scope (for oauth auth)
+  -o, --out-dir <dir>               Output directory
+  --preview                         Use preview environment
+  -g, --guest-space-id <id>         Guest space ID
+  -n, --namespace <namespace>       TypeScript namespace
+  -f, --format                      Format output with Prettier
+  --proxy <host:port>               Proxy server
+  --basic-auth-username <username>  Basic auth username
+  --basic-auth-password <password>  Basic auth password
+  -h, --help                        Display help
+  -V, --version                     Display version
+```
+
+### One-liner execution
+
+You can run without a config file by passing all options via CLI:
+
+```bash
+npx @goqoo/trunks \
+  -H example.cybozu.com \
+  -a customer:123 \
+  -a order:456 \
+  -A api-token \
+  -t "$KINTONE_API_TOKEN"
 ```
 
 ## Generated Output

@@ -17,6 +17,16 @@
 
 ## クイックスタート
 
+### init コマンドを使う
+
+```bash
+npx @goqoo/trunks init
+```
+
+対話形式で `trunks.config.ts` ファイルを作成できます。
+
+### 手動セットアップ
+
 1. プロジェクトルートに設定ファイル `trunks.config.ts` を作成：
 
 ```typescript
@@ -159,15 +169,53 @@ pfx: {
 },
 ```
 
-## CLI オプション
+## CLI
+
+### コマンド
 
 ```bash
-trunks [options]
+trunks init              # 対話形式で trunks.config.ts を作成
+trunks generate          # 型定義を生成（デフォルトコマンド）
+trunks                   # 'trunks generate' と同じ
+```
+
+### オプション
+
+```bash
+trunks generate [options]
 
 Options:
-  -c, --config <path>  設定ファイルのパス（デフォルト: 自動検出）
-  -h, --help           ヘルプを表示
-  -V, --version        バージョンを表示
+  -c, --config <path>               設定ファイルのパス
+  -H, --host <host>                 kintone ホスト（例: example.cybozu.com）
+  -a, --app <name:id>               生成するアプリ（複数指定可）
+  -A, --auth-type <type>            認証方式: password, api-token, oauth
+  -u, --username <username>         kintone ユーザー名（password 認証用）
+  -p, --password <password>         kintone パスワード（password 認証用）
+  -t, --api-token <token>           kintone API トークン（api-token 認証用）
+  --oauth-scope <scope>             OAuth スコープ（oauth 認証用）
+  -o, --out-dir <dir>               出力ディレクトリ
+  --preview                         プレビュー環境を使用
+  -g, --guest-space-id <id>         ゲストスペース ID
+  -n, --namespace <namespace>       TypeScript namespace
+  -f, --format                      Prettier でフォーマット
+  --proxy <host:port>               プロキシサーバー
+  --basic-auth-username <username>  Basic 認証ユーザー名
+  --basic-auth-password <password>  Basic 認証パスワード
+  -h, --help                        ヘルプを表示
+  -V, --version                     バージョンを表示
+```
+
+### ワンライナー実行
+
+設定ファイルなしで、CLI オプションだけで実行できます：
+
+```bash
+npx @goqoo/trunks \
+  -H example.cybozu.com \
+  -a customer:123 \
+  -a order:456 \
+  -A api-token \
+  -t "$KINTONE_API_TOKEN"
 ```
 
 ## 生成される出力
