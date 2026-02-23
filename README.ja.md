@@ -171,18 +171,10 @@ pfx: {
 
 ## CLI
 
-### コマンド
-
-```bash
-trunks init              # 対話形式で trunks.config.ts を作成
-trunks generate          # 型定義を生成（デフォルトコマンド）
-trunks                   # 'trunks generate' と同じ
-```
-
 ### オプション
 
 ```bash
-trunks generate [options]
+trunks [options]
 
 Options:
   -c, --config <path>               設定ファイルのパス

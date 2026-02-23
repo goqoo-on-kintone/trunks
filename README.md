@@ -171,18 +171,10 @@ pfx: {
 
 ## CLI
 
-### Commands
-
-```bash
-trunks init              # Create trunks.config.ts interactively
-trunks generate          # Generate type definitions (default command)
-trunks                   # Same as 'trunks generate'
-```
-
 ### Options
 
 ```bash
-trunks generate [options]
+trunks [options]
 
 Options:
   -c, --config <path>               Path to config file

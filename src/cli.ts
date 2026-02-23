@@ -95,30 +95,53 @@ function buildConfigFromOptions(options: {
   return config;
 }
 
+// 型定義生成のアクション
+async function generateAction(options: {
+  config?: string;
+  host?: string;
+  app: Record<string, number>;
+  authType: string;
+  username?: string;
+  password?: string;
+  apiToken?: string;
+  oauthScope?: string;
+  outDir?: string;
+  preview?: boolean;
+  guestSpaceId?: string;
+  namespace?: string;
+  format?: boolean;
+  proxy?: string;
+  basicAuthUsername?: string;
+  basicAuthPassword?: string;
+}): Promise<void> {
+  try {
+    let config: Config;
+
+    // --hostと--appが指定されている場合はCLIオプションから設定を構築
+    if (options.host && Object.keys(options.app).length > 0) {
+      config = buildConfigFromOptions(options as Parameters<typeof buildConfigFromOptions>[0]);
+    } else if (options.host || Object.keys(options.app).length > 0) {
+      // 片方だけ指定されている場合はエラー
+      throw new Error('Both --host and --app are required for CLI-only mode');
+    } else {
+      // 設定ファイルから読み込み
+      config = await loadConfig(options.config ? undefined : process.cwd());
+    }
+
+    await generate(config);
+  } catch (error) {
+    console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
 const program = new Command();
 
 program
   .name('trunks')
   .description('Generate TypeScript type definitions for multiple Kintone apps')
-  .version(version);
-
-// init コマンド
-program
-  .command('init')
-  .description('Create a new trunks.config.ts interactively')
-  .action(async () => {
-    try {
-      await init();
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
-
-// generate コマンド（デフォルト）
-program
-  .command('generate', { isDefault: true })
-  .description('Generate type definitions for all configured apps')
+  .version(version)
+  // 設定ファイル
   .option('-c, --config <path>', 'Path to config file')
   // ワンライナー実行用オプション
   .option('-H, --host <host>', 'Kintone host (e.g., example.cybozu.com)')
@@ -136,22 +159,15 @@ program
   .option('--proxy <host:port>', 'Proxy server')
   .option('--basic-auth-username <username>', 'Basic auth username')
   .option('--basic-auth-password <password>', 'Basic auth password')
-  .action(async (options) => {
+  .action(generateAction);
+
+// init コマンド
+program
+  .command('init')
+  .description('Create a new trunks.config.ts interactively')
+  .action(async () => {
     try {
-      let config: Config;
-
-      // --hostと--appが指定されている場合はCLIオプションから設定を構築
-      if (options.host && Object.keys(options.app).length > 0) {
-        config = buildConfigFromOptions(options);
-      } else if (options.host || Object.keys(options.app).length > 0) {
-        // 片方だけ指定されている場合はエラー
-        throw new Error('Both --host and --app are required for CLI-only mode');
-      } else {
-        // 設定ファイルから読み込み
-        config = await loadConfig(options.config ? undefined : process.cwd());
-      }
-
-      await generate(config);
+      await init();
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
       process.exit(1);
