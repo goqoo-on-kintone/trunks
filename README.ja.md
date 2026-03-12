@@ -1,4 +1,4 @@
-# trunks
+# Trunks
 
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -247,7 +247,7 @@ yarn dev
 
 - [@kintone/dts-gen](https://github.com/kintone/js-sdk/tree/main/packages/dts-gen) - 型定義生成の本体
 - [Gyuma](https://github.com/nicecai/gyuma) - kintone の OAuth 認証
-- [gotenks](https://github.com/goqoo-on-kintone/gotenks) - kintone TypeScript 型を Go 型に変換
+- [Gotenks](https://github.com/goqoo-on-kintone/gotenks) - kintone TypeScript 型を Go 型に変換
 
 ## ライセンス
 
