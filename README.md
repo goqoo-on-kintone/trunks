@@ -199,6 +199,7 @@ Options:
   -g, --guest-space-id <id>         Guest space ID
   -n, --namespace <namespace>       TypeScript namespace
   -f, --format                      Format output with Prettier
+  -d, --debug                       Show detailed output on error
   --proxy <host:port>               Proxy server
   --basic-auth-username <username>  Basic auth username
   --basic-auth-password <password>  Basic auth password

@@ -199,6 +199,7 @@ Options:
   -g, --guest-space-id <id>         ゲストスペース ID
   -n, --namespace <namespace>       TypeScript namespace
   -f, --format                      Prettier でフォーマット
+  -d, --debug                       エラー時に詳細情報を表示
   --proxy <host:port>               プロキシサーバー
   --basic-auth-username <username>  Basic 認証ユーザー名
   --basic-auth-password <password>  Basic 認証パスワード

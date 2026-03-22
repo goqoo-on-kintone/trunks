@@ -62,6 +62,8 @@ export type Config = {
   namespace?: string;
   // 生成後にPrettierでフォーマットするか（デフォルト: false）
   format?: boolean;
+  // デバッグモード：エラー発生時に詳細情報を表示（デフォルト: false）
+  debug?: boolean;
 };
 
 // 設定ファイルの型（defineConfigのため）
