@@ -99,11 +99,20 @@ KINTONE_PASSWORD=your-password
 KINTONE_API_TOKEN=your-api-token
 ```
 
-> **Warning**: If you write credentials directly in the config file, make sure to add the config file to `.gitignore` to avoid committing sensitive information to version control. Using environment variables (`.env` file) or stdin prompts is recommended.
+Credentials can also be stored in `~/.netrc`:
+
+```
+machine example.cybozu.com
+  login your-username
+  password your-password
+  account basic-user:basic-password
+```
+
+> **Warning**: If you write credentials directly in the config file, make sure to add the config file to `.gitignore` to avoid committing sensitive information to version control. Using environment variables (`.env` file), `~/.netrc`, or stdin prompts is recommended.
 
 #### Password
 
-Credentials are read from the config file, environment variables `KINTONE_USERNAME` and `KINTONE_PASSWORD`, or prompted via stdin (in that order of priority).
+Credentials are read from the config file, `~/.netrc`, environment variables `KINTONE_USERNAME` and `KINTONE_PASSWORD`, or prompted via stdin (in that order of priority).
 
 ```typescript
 auth: { type: 'password' },
@@ -190,6 +199,7 @@ Options:
   -g, --guest-space-id <id>         Guest space ID
   -n, --namespace <namespace>       TypeScript namespace
   -f, --format                      Format output with Prettier
+  -d, --debug                       Show detailed output on error
   --proxy <host:port>               Proxy server
   --basic-auth-username <username>  Basic auth username
   --basic-auth-password <password>  Basic auth password

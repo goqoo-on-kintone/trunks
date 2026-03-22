@@ -99,11 +99,20 @@ KINTONE_PASSWORD=your-password
 KINTONE_API_TOKEN=your-api-token
 ```
 
-> **注意**: 設定ファイルに認証情報を直書きする場合は、設定ファイルを `.gitignore` に追加して、バージョン管理に機密情報がコミットされないようにしてください。環境変数（`.env` ファイル）または標準入力の使用を推奨します。
+`~/.netrc` に認証情報を保存することもできます：
+
+```
+machine example.cybozu.com
+  login your-username
+  password your-password
+  account basic-user:basic-password
+```
+
+> **注意**: 設定ファイルに認証情報を直書きする場合は、設定ファイルを `.gitignore` に追加して、バージョン管理に機密情報がコミットされないようにしてください。環境変数（`.env` ファイル）、`~/.netrc`、または標準入力の使用を推奨します。
 
 #### パスワード
 
-認証情報は設定ファイル、環境変数 `KINTONE_USERNAME` と `KINTONE_PASSWORD`、または標準入力から取得します（この優先順位）。
+認証情報は設定ファイル、`~/.netrc`、環境変数 `KINTONE_USERNAME` と `KINTONE_PASSWORD`、または標準入力から取得します（この優先順位）。
 
 ```typescript
 auth: { type: 'password' },
@@ -190,6 +199,7 @@ Options:
   -g, --guest-space-id <id>         ゲストスペース ID
   -n, --namespace <namespace>       TypeScript namespace
   -f, --format                      Prettier でフォーマット
+  -d, --debug                       エラー時に詳細情報を表示
   --proxy <host:port>               プロキシサーバー
   --basic-auth-username <username>  Basic 認証ユーザー名
   --basic-auth-password <password>  Basic 認証パスワード

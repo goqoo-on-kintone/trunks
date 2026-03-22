@@ -3,8 +3,23 @@ import { mkdirSync } from 'fs';
 import * as readline from 'readline';
 import chalk from 'chalk';
 import { kebabCase, pascalCase } from 'change-case';
+import { Netrc, type Machines } from 'netrc-parser';
 import type { AgentOptions, Config } from './types.js';
 import { getOauthToken } from './oauth.js';
+
+// netrcから認証情報を取得
+type NetrcCredentials = Machines[string];
+
+function getNetrcCredentials(host: string): NetrcCredentials {
+  try {
+    const netrc = new Netrc();
+    netrc.loadSync();
+    return netrc.machines[host] ?? {};
+  } catch {
+    // netrcファイルが存在しない場合などは空を返す
+    return {};
+  }
+}
 
 // npx prettierが実行可能かチェック
 function isPrettierAvailable(): boolean {
@@ -101,11 +116,14 @@ function promptPassword(question: string): Promise<string> {
 async function buildAuthArgs(config: Config): Promise<DtsGenArgs> {
   const args: DtsGenArgs = {};
 
+  // netrcから認証情報を取得（OAuth以外で使用）
+  const netrcCreds = config.auth.type !== 'oauth' ? getNetrcCredentials(config.host) : {};
+
   switch (config.auth.type) {
     case 'password': {
-      // 設定ファイル → 環境変数 → 標準入力の優先順位
-      let username = config.auth.username ?? process.env.KINTONE_USERNAME;
-      let password = config.auth.password ?? process.env.KINTONE_PASSWORD;
+      // 設定ファイル → netrc → 環境変数 → 標準入力の優先順位
+      let username = config.auth.username ?? netrcCreds.login ?? process.env.KINTONE_USERNAME;
+      let password = config.auth.password ?? netrcCreds.password ?? process.env.KINTONE_PASSWORD;
 
       // 未設定の場合は標準入力で取得
       if (!username) {
@@ -134,7 +152,7 @@ async function buildAuthArgs(config: Config): Promise<DtsGenArgs> {
       break;
     }
     case 'api-token': {
-      // 設定ファイル → 環境変数 → 標準入力の優先順位
+      // 設定ファイル → 環境変数 → 標準入力の優先順位（APIトークンはnetrc非対応）
       let token = config.auth.token ?? process.env.KINTONE_API_TOKEN;
 
       if (!token) {
@@ -150,10 +168,17 @@ async function buildAuthArgs(config: Config): Promise<DtsGenArgs> {
     }
   }
 
-  // Basic認証
+  // Basic認証（設定ファイル → netrc）
   if (config.basicAuth) {
     args['basic-auth-username'] = config.basicAuth.username;
     args['basic-auth-password'] = config.basicAuth.password;
+  } else if (netrcCreds.account) {
+    // netrcのaccountフィールドからBasic認証を取得（user:password形式）
+    const [basicUser, basicPass] = netrcCreds.account.split(':');
+    if (basicUser && basicPass) {
+      args['basic-auth-username'] = basicUser;
+      args['basic-auth-password'] = basicPass;
+    }
   }
 
   // プロキシ
@@ -181,13 +206,27 @@ function extractKintoneError(output: string): { code: string; id: string; messag
   return null;
 }
 
+// 認証情報をマスクした引数を返す（デバッグ表示用）
+function maskSensitiveArgs(args: string[]): string[] {
+  const sensitiveKeys = ['password', 'api-token', 'oauth-token', 'basic-auth-password'];
+  return args.map((arg) => {
+    for (const key of sensitiveKeys) {
+      if (arg.startsWith(`--${key}=`)) {
+        return `--${key}=****`;
+      }
+    }
+    return arg;
+  });
+}
+
 // 単一アプリの型定義を生成
 function generateForApp(
   appName: string,
   appId: number,
   config: Config,
   authArgs: DtsGenArgs,
-  outDir: string
+  outDir: string,
+  debug: boolean
 ): Promise<{ success: boolean; output: string }> {
   return new Promise((resolve) => {
     const outputPath = `${outDir}/${kebabCase(appName)}-fields.d.ts`;
@@ -236,6 +275,22 @@ function generateForApp(
         } else {
           console.error(chalk.red(`Error [${appName}]:`), `kintone-dts-gen exited with code ${code}`);
         }
+
+        // デバッグモードの場合は詳細を表示
+        if (debug) {
+          console.error(chalk.gray('\n--- Debug Info ---'));
+          console.error(chalk.gray('Command:'), 'npx kintone-dts-gen', maskSensitiveArgs(cliArgs).join(' '));
+          if (stdout.trim()) {
+            console.error(chalk.gray('stdout:'));
+            console.error(chalk.gray(stdout));
+          }
+          if (stderr.trim()) {
+            console.error(chalk.gray('stderr:'));
+            console.error(chalk.gray(stderr));
+          }
+          console.error(chalk.gray('--- End Debug Info ---\n'));
+        }
+
         resolve({ success: false, output: outputPath });
       } else {
         console.info(`${chalk.cyan('info')} ${chalk.magenta('Created')} ${chalk.green(outputPath)}`);
@@ -245,6 +300,9 @@ function generateForApp(
 
     proc.on('error', (err) => {
       console.error(chalk.red(`Error [${appName}]:`), err.message);
+      if (debug) {
+        console.error(chalk.gray('Stack:'), err.stack);
+      }
       resolve({ success: false, output: outputPath });
     });
   });
@@ -264,9 +322,10 @@ export async function generate(config: Config): Promise<void> {
   console.info(chalk.cyan(`Generating type definitions for ${apps.length} app(s)...`));
 
   // 順次実行（並列だとコンソール出力が混在する）
+  const debug = config.debug === true;
   const results: { success: boolean; output: string }[] = [];
   for (const [appName, appId] of apps) {
-    const result = await generateForApp(appName, appId, config, authArgs, outDir);
+    const result = await generateForApp(appName, appId, config, authArgs, outDir, debug);
     results.push(result);
 
     // 成功したファイルをPrettierでフォーマット

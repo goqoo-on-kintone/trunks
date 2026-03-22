@@ -49,6 +49,7 @@ function buildConfigFromOptions(options: {
   guestSpaceId?: string;
   namespace?: string;
   format?: boolean;
+  debug?: boolean;
   proxy?: string;
   basicAuthUsername?: string;
   basicAuthPassword?: string;
@@ -78,6 +79,7 @@ function buildConfigFromOptions(options: {
   if (options.guestSpaceId) config.guestSpaceId = parseInt(options.guestSpaceId, 10);
   if (options.namespace) config.namespace = options.namespace;
   if (options.format) config.format = true;
+  if (options.debug) config.debug = true;
 
   // プロキシ設定
   if (options.proxy) {
@@ -110,6 +112,7 @@ async function generateAction(options: {
   guestSpaceId?: string;
   namespace?: string;
   format?: boolean;
+  debug?: boolean;
   proxy?: string;
   basicAuthUsername?: string;
   basicAuthPassword?: string;
@@ -127,6 +130,9 @@ async function generateAction(options: {
       // 設定ファイルから読み込み
       config = await loadConfig(options.config ? undefined : process.cwd());
     }
+
+    // --debug オプションはCLI引数を優先
+    if (options.debug) config.debug = true;
 
     await generate(config);
   } catch (error) {
@@ -156,6 +162,7 @@ program
   .option('-g, --guest-space-id <id>', 'Guest space ID')
   .option('-n, --namespace <namespace>', 'TypeScript namespace')
   .option('-f, --format', 'Format output with Prettier')
+  .option('-d, --debug', 'Show detailed output on error')
   .option('--proxy <host:port>', 'Proxy server')
   .option('--basic-auth-username <username>', 'Basic auth username')
   .option('--basic-auth-password <password>', 'Basic auth password')
