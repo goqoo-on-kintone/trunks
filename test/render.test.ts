@@ -114,4 +114,38 @@ describe('renderExtendedTypes', () => {
     const source = renderExtendedTypes('expense', meta, 'kintone.types');
     expect(source).toContain("export type ExpenseStatus = 'it\\'s done';");
   });
+
+  it('statesがありactionsが空配列の場合はStatus型のみ出力しAction・ProceedEventは出力しない', () => {
+    // ステータスは定義されているが遷移アクションが0件のプロセス管理は
+    // kintoneの仕様上ありうる。toUnion([])は''になるため空配列のまま出力すると
+    // `export type ExpenseAction = ;` という構文エラーになってしまう
+    const meta: AppMeta = { ...fullMeta, actions: [] };
+    const source = renderExtendedTypes('expense', meta, 'kintone.types');
+    expect(source).toContain("export type ExpenseStatus = '未申請' | '申請中' | '承認済み' | '却下';");
+    expect(source).not.toContain('ExpenseAction');
+    expect(source).not.toContain('ExpenseProceedEvent');
+    expect(source).not.toContain('ProcessProceedEvent');
+    expect(source).not.toMatch(/=\s*;/);
+  });
+
+  it('actionsがありstatesが空配列の場合はAction型のみ出力しStatus・ProceedEvent・ステータス欄は出力しない', () => {
+    const meta: AppMeta = { ...fullMeta, states: [] };
+    const source = renderExtendedTypes('expense', meta, 'kintone.types');
+    expect(source).toContain("export type ExpenseAction = '申請する' | '承認する' | '却下する' | '取り下げる';");
+    expect(source).not.toContain('ExpenseStatus');
+    expect(source).not.toContain('ExpenseProceedEvent');
+    expect(source).not.toContain("type: 'STATUS';");
+    expect(source).not.toMatch(/=\s*;/);
+  });
+
+  it('statesとactionsが両方空配列の場合はプロセス管理が無効な場合と同様に振る舞う', () => {
+    const meta: AppMeta = { ...fullMeta, states: [], actions: [] };
+    const source = renderExtendedTypes('expense', meta, 'kintone.types');
+    expect(source).not.toContain('ExpenseStatus');
+    expect(source).not.toContain('ExpenseAction');
+    expect(source).not.toContain('ProcessProceedEvent');
+    expect(source).toContain('export type ExpenseRecord = kintone.types.SavedExpenseFields & {');
+    expect(source).toContain('export type ExpenseDetailEvent = DetailEvent<ExpenseRecord>;');
+    expect(source).not.toMatch(/=\s*;/);
+  });
 });

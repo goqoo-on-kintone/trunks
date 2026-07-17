@@ -21,24 +21,39 @@ function toUnion(values: string[]): string {
   return values.map((value) => `'${escapeSingleQuotes(value)}'`).join(' | ');
 }
 
+// 空配列は toUnion() で '' になり `= ;` という構文エラーを生むため、
+// 要素が1件以上ある場合のみ値を返す。プロセス管理が有効でも遷移アクションが
+// 0件のkintoneアプリはありうる（逆に、状態はあってもアクションがない場合もある）ため、
+// states/actionsそれぞれ独立に「空でないか」を判定できるようにする。
+function nonEmpty(values: string[] | undefined): string[] | undefined {
+  return values !== undefined && values.length > 0 ? values : undefined;
+}
+
 // AppMetaから拡張型定義のソースを組み立てる
 export function renderExtendedTypes(appName: string, meta: AppMeta, namespace: string): string {
   const prefix = pascalCase(appName);
-  const hasProcess = meta.states !== undefined && meta.actions !== undefined && meta.statusFieldCode !== undefined;
+  const states = nonEmpty(meta.states);
+  const actions = nonEmpty(meta.actions);
+  // Status Union・Recordのステータスフィールドはステータスフィールドコードとstatesが揃った場合のみ出力する
+  const hasStatus = meta.statusFieldCode !== undefined && states !== undefined;
+  // ProceedEventはStatus・Action両方の型引数を必要とするため、両方揃った場合のみ出力する
+  const hasProceedEvent = hasStatus && actions !== undefined;
 
-  const imports = buildImports(meta, hasProcess);
+  const imports = buildImports(meta, hasProceedEvent);
   const blocks: string[] = [HEADER, '', `import type { ${imports.join(', ')} } from '@goqoo/trunks/types';`, ''];
 
-  if (hasProcess) {
-    blocks.push(`export type ${prefix}Status = ${toUnion(meta.states!)};`, '');
-    blocks.push(`export type ${prefix}Action = ${toUnion(meta.actions!)};`, '');
+  if (meta.statusFieldCode !== undefined && states !== undefined) {
+    blocks.push(`export type ${prefix}Status = ${toUnion(states)};`, '');
+  }
+  if (actions !== undefined) {
+    blocks.push(`export type ${prefix}Action = ${toUnion(actions)};`, '');
   }
 
-  blocks.push(...buildRecord(prefix, meta, namespace, hasProcess));
+  blocks.push(...buildRecord(prefix, meta, namespace, states));
 
   blocks.push(`export type ${prefix}DetailEvent = DetailEvent<${prefix}Record>;`);
   blocks.push(`export type ${prefix}IndexEvent = IndexEvent<${prefix}Record>;`);
-  if (hasProcess) {
+  if (hasProceedEvent) {
     blocks.push(
       `export type ${prefix}ProceedEvent = ProcessProceedEvent<${prefix}Record, ${prefix}Status, ${prefix}Action>;`
     );
@@ -47,24 +62,24 @@ export function renderExtendedTypes(appName: string, meta: AppMeta, namespace: s
   return `${blocks.join('\n')}\n`;
 }
 
-function buildImports(meta: AppMeta, hasProcess: boolean): string[] {
+function buildImports(meta: AppMeta, hasProceedEvent: boolean): string[] {
   const imports: string[] = [];
   if (meta.lookups.some((lookup) => lookup.kind === 'LookupText')) imports.push('LookupText');
   if (meta.lookups.some((lookup) => lookup.kind === 'LookupNumber')) imports.push('LookupNumber');
   imports.push('DetailEvent', 'IndexEvent');
-  if (hasProcess) imports.push('ProcessProceedEvent');
+  if (hasProceedEvent) imports.push('ProcessProceedEvent');
   return imports;
 }
 
-function buildRecord(prefix: string, meta: AppMeta, namespace: string, hasProcess: boolean): string[] {
+function buildRecord(prefix: string, meta: AppMeta, namespace: string, states: string[] | undefined): string[] {
   const lines = [`export type ${prefix}Record = ${namespace}.Saved${prefix}Fields & {`];
 
   for (const lookup of meta.lookups) {
     lines.push(`  ${propKey(lookup.code)}: ${lookup.kind};`);
   }
 
-  if (hasProcess) {
-    lines.push(`  ${propKey(meta.statusFieldCode!)}: { type: 'STATUS'; value: ${prefix}Status };`);
+  if (meta.statusFieldCode !== undefined && states !== undefined) {
+    lines.push(`  ${propKey(meta.statusFieldCode)}: { type: 'STATUS'; value: ${prefix}Status };`);
   }
 
   if (meta.assigneeFieldCode) {
