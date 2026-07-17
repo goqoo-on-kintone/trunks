@@ -1381,8 +1381,14 @@ Expected: ビルド成功、全テスト PASS
 
 - [ ] **Step 5: Prettier をかける**
 
-Run: `yarn prettier --write .`
-Expected: 変更されたファイルが整形される
+**`yarn prettier --write .` を素で実行してはいけない。** `.prettierrc.cjs` は `singleQuote: false` を宣言しているが、コードベース全体がシングルクォートで書かれており、既存ファイルは未変更のまま `prettier --check` に落ちる。素で実行するとこのブランチと無関係なファイルまで全部ダブルクォートに書き換わる。
+
+このブランチが触ったファイルだけを対象にする。
+
+Run: `npx prettier --write $(git diff --name-only $(git merge-base main HEAD) HEAD -- '*.ts' '*.js' '*.json' | tr '\n' ' ')`
+Expected: このブランチのファイルのみ整形される
+
+`.prettierrc.cjs` 自体の扱いは別途判断する（このタスクの担当外）。
 
 - [ ] **Step 6: コミット**
 
