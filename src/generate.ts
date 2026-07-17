@@ -4,7 +4,8 @@ import * as readline from 'readline';
 import chalk from 'chalk';
 import { kebabCase, pascalCase } from 'change-case';
 import { Netrc, type Machines } from 'netrc-parser';
-import type { AgentOptions, Config } from './types.js';
+import type { AgentOptions, Config, DtsGenArgs } from './types.js';
+import { normalizeApps } from './types.js';
 import { getOauthToken } from './oauth.js';
 
 // netrcから認証情報を取得
@@ -47,8 +48,6 @@ function formatWithPrettier(filePath: string): Promise<boolean> {
     });
   });
 }
-
-type DtsGenArgs = Record<string, string | undefined>;
 
 // 標準入力からテキストを取得
 function prompt(question: string): Promise<string> {
@@ -314,7 +313,7 @@ export async function generate(config: Config): Promise<void> {
   mkdirSync(outDir, { recursive: true });
 
   const authArgs = await buildAuthArgs(config);
-  const apps = Object.entries(config.apps);
+  const apps = normalizeApps(config.apps);
 
   // format: trueの場合のみPrettierを使用
   const usePrettier = config.format === true && isPrettierAvailable();
@@ -324,8 +323,8 @@ export async function generate(config: Config): Promise<void> {
   // 順次実行（並列だとコンソール出力が混在する）
   const debug = config.debug === true;
   const results: { success: boolean; output: string }[] = [];
-  for (const [appName, appId] of apps) {
-    const result = await generateForApp(appName, appId, config, authArgs, outDir, debug);
+  for (const app of apps) {
+    const result = await generateForApp(app.name, app.id, config, authArgs, outDir, debug);
     results.push(result);
 
     // 成功したファイルをPrettierでフォーマット
