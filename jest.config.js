@@ -11,6 +11,9 @@ export default {
       'ts-jest',
       {
         useESM: true,
+        // tsconfigのisolatedModulesが有効だとts-jestは型検査を行わない。
+        // テストで型の誤りを検出するため、テスト実行時のみ無効化する。
+        tsconfig: { isolatedModules: false },
       },
     ],
   },

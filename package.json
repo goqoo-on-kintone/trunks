@@ -9,6 +9,17 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/kintone-types.d.ts",
+      "import": "./dist/kintone-types.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "types": [
+        "dist/kintone-types.d.ts"
+      ]
     }
   },
   "files": [
