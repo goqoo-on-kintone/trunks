@@ -20,7 +20,7 @@
 - `extended` のデフォルトは `true`。
 - 生成ファイルが参照する dts-gen の型は `${config.namespace ?? 'kintone.types'}.Saved${pascalCase(appName)}Fields`。`kintone.types` を決め打ちしない。
 - 非ゴール（実装しない）: サブテーブル内のルックアップ（警告のみ）、`CATEGORY` フィールド、`SINGLE_LINE_TEXT` / `NUMBER` 以外を基底とするルックアップ（警告のみ）。
-- テストは `yarn test`（`NODE_OPTIONS='--experimental-vm-modules' jest`）で実行する。ts-jest は型チェックを行うため、型レベルの誤りはテスト失敗として現れる。
+- テストは `yarn test`（`NODE_OPTIONS='--experimental-vm-modules' jest`）で実行する。Task 1 で `jest.config.js` に `tsconfig: { isolatedModules: false }` を入れて以降、ts-jest が型チェックを行うため、型レベルの誤りはテスト失敗として現れる（それ以前は transpile のみで型は一切検証されない）。
 
 ## File Structure
 
@@ -46,6 +46,8 @@
 - Create: `src/kintone-types.ts`
 - Create: `test/kintone-types.test.ts`
 - Modify: `package.json`
+- Modify: `tsconfig.json`（`kintone` グローバルの解決）
+- Modify: `jest.config.js`（ts-jest の型検査を有効化）
 
 **Interfaces:**
 - Produces: `LookupText`, `LookupNumber`, `KintoneEvent`, `IndexEvent<T>`, `DetailEvent<T>`, `ProcessProceedEvent<T, U, V>` — すべて型のみ。Task 5 のレンダラがこれらの名前を文字列として出力する。
@@ -126,11 +128,9 @@ Expected: FAIL — `Cannot find module '../src/kintone-types'`
 
 - [ ] **Step 3: 静的型を実装する**
 
-`src/kintone-types.ts` を作成する。先頭の triple-slash directive が `kintone` グローバル名前空間を引き込む。`@kintone/dts-gen` の package.json には `exports` フィールドがなく `kintone.d.ts` が `files` に含まれて publish されるため、この形で解決する。
+`src/kintone-types.ts` を作成する。triple-slash directive は**書かない**。dts-gen が生成するファイル自身が `kintone.fieldTypes.*` を参照しつつ reference directive を持たないため、利用者は元々 `kintone.d.ts` を自分の tsconfig で読み込んでいる。同じ規約に従う（`kintone` グローバルの解決は Step 4 で trunks 自身のビルド向けに設定する）。
 
 ```ts
-/// <reference types="@kintone/dts-gen/kintone" />
-
 // ルックアップフィールド。dts-genはlookupプロパティを出力しないため、trunksが補完する。
 // lookupは書き込み専用でAPIから取得したレコードには存在しないため任意とする。
 export type LookupText = kintone.fieldTypes.SingleLineText & {
@@ -174,14 +174,50 @@ export type ProcessProceedEvent<T, U, V> = DetailEvent<T> & {
 };
 ```
 
-- [ ] **Step 4: テストが通ることを確認する**
+- [ ] **Step 4: `tsconfig.json` で `kintone` グローバルを解決させる**
 
-Run: `yarn test test/kintone-types.test.ts`
-Expected: PASS（6 テスト）
+この時点では `yarn build` が `TS2503: Cannot find namespace 'kintone'` で失敗する。trunks 自身のビルドに `kintone.d.ts` をプログラムへ含める必要がある。
 
-もし `Cannot find namespace 'kintone'` で失敗する場合、triple-slash directive が解決していない。`ls node_modules/@kintone/dts-gen/kintone.d.ts` でファイルの存在を確認する。
+`tsconfig.json` の `include` に `kintone.d.ts` を足し、`exclude` から `node_modules` を外す。`exclude` は `include` を後からフィルタするため、`node_modules` を除外したままだと `include` に書いても読み込まれない。
 
-- [ ] **Step 5: `package.json` にサブパスを追加する**
+```json
+  "include": ["src/**/*", "node_modules/@kintone/dts-gen/kintone.d.ts"],
+  "exclude": ["dist"]
+```
+
+`rootDir: "src"` はそのままで良い。`.d.ts` は出力されないため `TS6059`（rootDir 外）にはならず、`dist/kintone-types.d.ts` は `dist` 直下に出力される。
+
+Run: `yarn build`
+Expected: エラーなく完了する
+
+- [ ] **Step 5: ts-jest の型検査を有効にする**
+
+この時点では `test/kintone-types.test.ts` は「通る」が、実は型を一切検証していない。`tsconfig.json` の `isolatedModules: true` を ts-jest が読み取り、transpile のみのモード（型診断なし）で動作するため。Step 1 のテストは型レベルの検証が目的なので、このままでは無意味なテストになる。
+
+`jest.config.js` の transform オプションに tsconfig の上書きを足す。
+
+```js
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        useESM: true,
+        // tsconfigのisolatedModulesが有効だとts-jestは型検査を行わない。
+        // テストで型の誤りを検出するため、テスト実行時のみ無効化する。
+        tsconfig: { isolatedModules: false },
+      },
+    ],
+```
+
+型検査が実際に効くことを確認する。`test/__probe.test.ts` に `const x: number = 'string';` を含む使い捨てのテストを作り、`yarn test test/__probe.test.ts` が `error TS2322` で FAIL することを確かめてから削除する。**確認後、probe ファイルは必ず削除すること。**
+
+- [ ] **Step 6: テストが通ることを確認する**
+
+Run: `yarn test`
+Expected: 全 PASS。`test/kintone-types.test.ts` は 6 テスト。既存テスト（`config` / `generate` / `types`）も型検査が有効になった状態で通ること。
+
+既存テストが型エラーで落ちる場合は、そのエラー内容を報告すること（既存コードの型の問題を暴いた可能性があり、勝手に握り潰さない）。
+
+- [ ] **Step 7: `package.json` にサブパスを追加する**
 
 `exports` に `./types` を追加し、`typesVersions` を併記する。`typesVersions` は subpath exports が `moduleResolution: node16 / nodenext / bundler` でしか解決されないため必要で、旧 `"moduleResolution": "node"` のプロジェクト向けのフォールバックになる。
 
@@ -207,19 +243,15 @@ Expected: PASS（6 テスト）
   },
 ```
 
-- [ ] **Step 6: ビルドして type reference directive の伝播を確認する**
+- [ ] **Step 8: 出力される型定義を確認する**
 
-これは設計ドキュメントのリスク 1 の検証。`dist/kintone-types.d.ts` に reference directive が保持されていないと、利用者側で `kintone.fieldTypes` が解決できず型エラーになる。
+Run: `yarn build && head -8 dist/kintone-types.d.ts`
+Expected: `export type LookupText = kintone.fieldTypes.SingleLineText & {` で始まり、reference directive は**含まれない**。これは dts-gen 自身の出力（`declare namespace kintone.types` で始まり directive を持たない）と同じ規約で、利用者側の `kintone.d.ts` 読み込みに委ねる形。
 
-Run: `yarn build && cat dist/kintone-types.d.ts | head -5`
-Expected: 1 行目に `/// <reference types="@kintone/dts-gen/kintone" />` が出力されている
-
-directive が消えている場合は、`src/kintone-types.ts` に `export type KintoneGlobalAnchor = kintone.fieldTypes.SingleLineText;` のようなアンカーを足すのではなく、`package.json` の `types` エントリ側で解決させる方針に切り替える。その判断が必要になったら実装を止めて報告すること。
-
-- [ ] **Step 7: コミット**
+- [ ] **Step 9: コミット**
 
 ```bash
-git add src/kintone-types.ts test/kintone-types.test.ts package.json
+git add src/kintone-types.ts test/kintone-types.test.ts package.json tsconfig.json jest.config.js
 git commit -m "feat: add static kintone types exposed via @goqoo/trunks/types"
 ```
 

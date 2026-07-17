@@ -49,8 +49,6 @@ export type Config = {
 アプリのメタデータから導出されない静的な型は、生成せず trunks がパッケージとして提供する。生成ファイルは `import type` するだけなので TypeScript のコンパイル時に完全に消え、trunks は devDependency のままで済む。この分離により、trunks 側で型定義を修正した際にバージョン更新だけで利用者へ伝播する（再生成が不要になる）。
 
 ```ts
-/// <reference types="@kintone/dts-gen/kintone" />
-
 export type LookupText = kintone.fieldTypes.SingleLineText & {
   lookup?: 'UPDATE' | 'CLEAR';
 };
@@ -106,7 +104,11 @@ export type ProcessProceedEvent<T, U, V> = DetailEvent<T> & {
 
 `typesVersions` を併記するのは、subpath exports が `moduleResolution: node16 / nodenext / bundler` でしか解決されないため。kintone カスタマイズには旧 `"moduleResolution": "node"` のプロジェクトが残っており、その場合 `exports` が無視されて `@goqoo/trunks/types` を引けない。
 
-`@kintone/dts-gen` の package.json には `exports` フィールドがなく `kintone.d.ts` は `files` に含まれて publish される。したがって `/// <reference types="@kintone/dts-gen/kintone" />` は trunks 自身のビルドでも利用者のコンパイルでも解決する。
+`kintone` グローバルの参照に triple-slash directive は使わない。実装時に検証した結果、`/// <reference types="@kintone/dts-gen/kintone" />` は trunks 自身の `moduleResolution: NodeNext` では解決しなかった（この解決アルゴリズムは `@types` 形式のルートしか探索せず、`node_modules/@kintone/dts-gen/kintone.d.ts` を直接見に行かない）。
+
+そもそも directive は不要だった。dts-gen が生成するファイル自身が `kintone.fieldTypes.SingleLineText` を参照しながら reference directive を一切持たないため、利用者は元から `kintone.d.ts` を自分の tsconfig で読み込んでいる。`@goqoo/trunks/types` も同じ規約に従い、グローバルの読み込みは利用者に委ねる。
+
+trunks 自身のビルドについては、`tsconfig.json` の `include` に `node_modules/@kintone/dts-gen/kintone.d.ts` を追加し、`exclude` から `node_modules` を外して解決する（`exclude` は `include` を後からフィルタするため、両方必要）。
 
 ## データ取得
 
@@ -192,6 +194,6 @@ README.md / README.ja.md に `AppConfig`、`extended`、`@goqoo/trunks/types` �
 
 ## リスクと検証項目
 
-1. **`/// <reference types="..." />` の d.ts への伝播** — TypeScript が `dist/kintone-types.d.ts` に type reference directive を保持することを、ビルド後の出力で実際に確認する。落ちる場合は利用者側で `kintone.fieldTypes` が解決できず型エラーになる。
+1. ~~**`/// <reference types="..." />` の d.ts への伝播**~~ — 実装時に検証済み。directive は `NodeNext` で解決しないことが判明し、そもそも不要だったため方針を変更した（上記「パッケージのエクスポート構成」を参照）。
 2. **`status.json` の権限** — API トークン認証でアプリ管理権限がない場合の挙動を確認し、エラーメッセージで「`extended: false` で回避できる」ことを案内する。
 3. **`typesVersions` による旧 moduleResolution での解決** — `"moduleResolution": "node"` の tsconfig を持つプロジェクトで `@goqoo/trunks/types` が引けることを確認する。
