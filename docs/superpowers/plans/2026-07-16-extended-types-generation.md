@@ -1187,7 +1187,9 @@ async function generateExtendedForApp(
 
 - [ ] **Step 3: `generate` のループを差し替える**
 
-`generate` 関数の中の `const apps = Object.entries(config.apps);` を以下に置き換える。
+**注意:** Task 2 で `const apps = normalizeApps(config.apps);` への置き換えと `for (const app of apps)` へのループ変更は既に済んでいる（`Config.apps` の型変更でビルドが通らなくなるため先行実施された）。このステップで新たに足すのは**クライアントの生成と拡張型の分岐だけ**。
+
+`generate` 関数の中の `const apps = normalizeApps(config.apps);` の直後に、クライアント生成を追加する。
 
 ```ts
   const apps = normalizeApps(config.apps);
@@ -1205,7 +1207,7 @@ async function generateExtendedForApp(
   }
 ```
 
-そして `for (const [appName, appId] of apps) { ... }` のループ全体を以下に置き換える。
+そして既存の `for (const app of apps) { ... }` ループの**末尾に拡張型の分岐を追加する**（ループの前半、`generateForApp` の呼び出しと Prettier 処理は Task 2 で入った既存コードのまま変えない）。追加後のループ全体は以下になる。
 
 ```ts
   for (const app of apps) {
