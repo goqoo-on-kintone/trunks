@@ -49,6 +49,7 @@ function buildConfigFromOptions(options: {
   guestSpaceId?: string;
   namespace?: string;
   format?: boolean;
+  extended?: boolean;
   debug?: boolean;
   proxy?: string;
   basicAuthUsername?: string;
@@ -72,6 +73,13 @@ function buildConfigFromOptions(options: {
     apps: options.app,
     auth,
   };
+
+  // --no-extended が指定された場合は全アプリで拡張型生成を無効にする
+  if (options.extended === false) {
+    config.apps = Object.fromEntries(
+      Object.entries(options.app).map(([name, id]) => [name, { id, extended: false }])
+    );
+  }
 
   // オプション設定
   if (options.outDir) config.outDir = options.outDir;
@@ -112,6 +120,7 @@ async function generateAction(options: {
   guestSpaceId?: string;
   namespace?: string;
   format?: boolean;
+  extended?: boolean;
   debug?: boolean;
   proxy?: string;
   basicAuthUsername?: string;
@@ -162,6 +171,7 @@ program
   .option('-g, --guest-space-id <id>', 'Guest space ID')
   .option('-n, --namespace <namespace>', 'TypeScript namespace')
   .option('-f, --format', 'Format output with Prettier')
+  .option('--no-extended', 'Skip extended type generation (status, action, lookup, event types)')
   .option('-d, --debug', 'Show detailed output on error')
   .option('--proxy <host:port>', 'Proxy server')
   .option('--basic-auth-username <username>', 'Basic auth username')

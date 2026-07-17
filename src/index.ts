@@ -1,6 +1,8 @@
-export { defineConfig } from './types.js';
+export { defineConfig, normalizeApps } from './types.js';
 export type {
   Config,
+  AppConfig,
+  NormalizedApp,
   Auth,
   PasswordAuth,
   OAuthAuth,
