@@ -2,3 +2,5 @@ node_modules
 dist
 tmp
 .env
+.mcp.json
+.DS_Store
