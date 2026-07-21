@@ -138,6 +138,15 @@ async function generateAction(options: {
     } else {
       // 設定ファイルから読み込み
       config = await loadConfig(options.config ? undefined : process.cwd());
+
+      // --no-extended はワンライナーモード専用。設定ファイルモードでは無視されるため警告する
+      if (options.extended === false) {
+        console.warn(
+          chalk.yellow(
+            '--no-extended is ignored when using a config file. Set "extended: false" per app in your config instead.'
+          )
+        );
+      }
     }
 
     // --debug オプションはCLI引数を優先
