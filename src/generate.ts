@@ -1,11 +1,16 @@
 import { spawn, spawnSync } from 'child_process';
-import { mkdirSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import * as readline from 'readline';
 import chalk from 'chalk';
 import { kebabCase, pascalCase } from 'change-case';
 import { Netrc, type Machines } from 'netrc-parser';
-import type { AgentOptions, Config } from './types.js';
+import type { KintoneRestAPIClient } from '@kintone/rest-api-client';
+import type { AgentOptions, Config, DtsGenArgs } from './types.js';
+import { normalizeApps } from './types.js';
 import { getOauthToken } from './oauth.js';
+import { createClient } from './client.js';
+import { fetchAppMeta } from './app-meta.js';
+import { renderExtendedTypes } from './render.js';
 
 // netrcから認証情報を取得
 type NetrcCredentials = Machines[string];
@@ -47,8 +52,6 @@ function formatWithPrettier(filePath: string): Promise<boolean> {
     });
   });
 }
-
-type DtsGenArgs = Record<string, string | undefined>;
 
 // 標準入力からテキストを取得
 function prompt(question: string): Promise<string> {
@@ -308,13 +311,59 @@ function generateForApp(
   });
 }
 
+// 単一アプリの拡張型定義を生成
+async function generateExtendedForApp(
+  client: KintoneRestAPIClient,
+  app: { name: string; id: number },
+  config: Config,
+  outDir: string,
+  debug: boolean
+): Promise<boolean> {
+  const outputPath = `${outDir}/${kebabCase(app.name)}.ts`;
+
+  try {
+    const meta = await fetchAppMeta(client, app.id, config.preview === true, app.name);
+    const source = renderExtendedTypes(app.name, meta, config.namespace ?? 'kintone.types');
+    writeFileSync(outputPath, source, 'utf-8');
+    console.info(`${chalk.cyan('info')} ${chalk.magenta('Created')} ${chalk.green(outputPath)}`);
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const kintoneError = extractKintoneError(message);
+    if (kintoneError) {
+      console.error(chalk.red(`Error [${app.name}]:`), kintoneError.message);
+      console.error(chalk.gray(`  code: ${kintoneError.code}, id: ${kintoneError.id}`));
+    } else {
+      console.error(chalk.red(`Error [${app.name}]:`), message);
+    }
+    console.error(chalk.gray(`  Hint: set "extended: false" for this app to skip extended type generation.`));
+
+    if (debug && error instanceof Error) {
+      console.error(chalk.gray('Stack:'), error.stack);
+    }
+    return false;
+  }
+}
+
 // 全アプリの型定義を生成
 export async function generate(config: Config): Promise<void> {
   const outDir = config.outDir ?? 'dts';
   mkdirSync(outDir, { recursive: true });
 
   const authArgs = await buildAuthArgs(config);
-  const apps = Object.entries(config.apps);
+  const apps = normalizeApps(config.apps);
+
+  // 拡張型を生成するアプリがある場合のみ、クライアントを一度だけ作る。
+  // 生成に失敗しても dts-gen の実行は続け、拡張型だけを諦める。
+  let client: KintoneRestAPIClient | undefined;
+  if (apps.some((app) => app.extended)) {
+    try {
+      client = createClient(config, authArgs);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
+      console.error(chalk.gray('  Skipping extended type generation for all apps.'));
+    }
+  }
 
   // format: trueの場合のみPrettierを使用
   const usePrettier = config.format === true && isPrettierAvailable();
@@ -324,13 +373,29 @@ export async function generate(config: Config): Promise<void> {
   // 順次実行（並列だとコンソール出力が混在する）
   const debug = config.debug === true;
   const results: { success: boolean; output: string }[] = [];
-  for (const [appName, appId] of apps) {
-    const result = await generateForApp(appName, appId, config, authArgs, outDir, debug);
+  for (const app of apps) {
+    const result = await generateForApp(app.name, app.id, config, authArgs, outDir, debug);
     results.push(result);
 
     // 成功したファイルをPrettierでフォーマット
     if (result.success && usePrettier) {
       await formatWithPrettier(result.output);
+    }
+
+    // dts-genが失敗したアプリでは拡張型も生成しない（基底のSaved*Fields型が存在しないため）
+    if (!result.success || !app.extended) continue;
+
+    const extendedPath = `${outDir}/${kebabCase(app.name)}.ts`;
+    if (!client) {
+      results.push({ success: false, output: extendedPath });
+      continue;
+    }
+
+    const extendedOk = await generateExtendedForApp(client, app, config, outDir, debug);
+    results.push({ success: extendedOk, output: extendedPath });
+
+    if (extendedOk && usePrettier) {
+      await formatWithPrettier(extendedPath);
     }
   }
 

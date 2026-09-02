@@ -9,6 +9,17 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/kintone-types.d.ts",
+      "import": "./dist/kintone-types.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "types": [
+        "dist/kintone-types.d.ts"
+      ]
     }
   },
   "files": [
@@ -50,6 +61,7 @@
   },
   "dependencies": {
     "@kintone/dts-gen": "^9.0.2",
+    "@kintone/rest-api-client": "^6.2.1",
     "chalk": "^5.4.0",
     "change-case": "^5.4.0",
     "commander": "^13.0.0",

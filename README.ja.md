@@ -10,6 +10,7 @@
 ## 特徴
 
 - 1コマンドで複数アプリの型定義を生成
+- アプリごとの拡張型生成：ステータス・アクションの Union 型、ルックアップ対応の Record 型、イベント型エイリアス（デフォルトで有効）
 - TypeScript 設定ファイルで型安全な設定（`trunks.config.ts`）
 - 複数の認証方式に対応（パスワード、API トークン、OAuth）
 - Prettier による自動フォーマット（オプション）
@@ -59,9 +60,11 @@ npx @goqoo/trunks
 ```
 
 3. `dts/` ディレクトリに型定義ファイルが生成されます：
-   - `dts/customer-fields.d.ts`
-   - `dts/order-fields.d.ts`
-   - `dts/product-fields.d.ts`
+   - `dts/customer-fields.d.ts`, `dts/customer.ts`
+   - `dts/order-fields.d.ts`, `dts/order.ts`
+   - `dts/product-fields.d.ts`, `dts/product.ts`
+
+   `.ts` ファイルはアプリごとにデフォルトで生成される拡張型です。詳細は後述の [拡張型生成](#拡張型生成) を参照してください。
 
 ## 設定
 
@@ -74,8 +77,8 @@ export default defineConfig({
   // 必須
   host: 'your-subdomain.cybozu.com',
   apps: {
-    customer: 123,  // { アプリ名: アプリID }
-    order: 456,
+    customer: 123,                        // { id: 123 } の短縮形
+    order: { id: 456, extended: false },  // このアプリだけ拡張型生成を無効化
   },
   auth: { type: 'oauth' },
 
@@ -87,6 +90,8 @@ export default defineConfig({
   format: true,            // Prettier でフォーマット（デフォルト: false）
 });
 ```
+
+`apps` の型は `Record<string, number | { id: number; extended?: boolean }>` です。数値のみの短縮形は `{ id, extended: true }` と同じ意味になります。`extended` のデフォルトは `true` です。何が生成されるかは後述の [拡張型生成](#拡張型生成) を参照してください。
 
 ### 認証方式
 
@@ -199,6 +204,7 @@ Options:
   -g, --guest-space-id <id>         ゲストスペース ID
   -n, --namespace <namespace>       TypeScript namespace
   -f, --format                      Prettier でフォーマット
+  --no-extended                     拡張型生成をスキップ（ステータス・アクション・ルックアップ・イベント型）
   -d, --debug                       エラー時に詳細情報を表示
   --proxy <host:port>               プロキシサーバー
   --basic-auth-username <username>  Basic 認証ユーザー名
@@ -239,6 +245,90 @@ declare namespace kintone.types {
   }
 }
 ```
+
+## 拡張型生成
+
+アプリごとのデフォルト設定（`extended: true`）では、dts-gen の出力に加えて `dts/<app>.ts` も生成されます。これは `@kintone/dts-gen` が出力しない情報を補うものです：プロセス管理のステータス・アクション、ルックアップの `lookup` 書き込みプロパティ、イベントオブジェクトの型。共通の補助型は `@goqoo/trunks/types` からインポートされます。
+
+### 生成される型
+
+接頭辞は `PascalCase(appName)`（例: `expense` → `Expense`）です。
+
+- `<Prefix>Status` — ステータス名の Union 型。アプリが `STATUS` フィールドを持ち、かつプロセス管理が有効でステータスが1件以上ある場合のみ生成
+- `<Prefix>Action` — アクション名の Union 型。プロセス管理が有効でアクションが1件以上ある場合のみ生成
+- `<Prefix>Record` — 常に生成。`<namespace>.Saved<Prefix>Fields`（dts-gen の出力）にルックアップフィールドとプロセス管理フィールド（`STATUS` / `STATUS_ASSIGNEE`）を交差させた型
+- `<Prefix>DetailEvent` — 常に生成。詳細画面のイベント型
+- `<Prefix>IndexEvent` — 常に生成。一覧画面のイベント型
+- `<Prefix>ProceedEvent` — `<Prefix>Status` と `<Prefix>Action` の両方が生成される場合のみ生成。プロセス実行のイベント型
+
+プロセス管理が無効なアプリでは `<Prefix>Record` / `<Prefix>DetailEvent` / `<Prefix>IndexEvent` のみが生成され、`Status` / `Action` / `ProceedEvent` は生成されません。
+
+### 利用例
+
+架空の経費申請アプリ（`apps: { expense: 123 }`）に、ルックアップフィールドとプロセス管理があるとします。
+
+```ts
+// dts/expense.ts（生成されたファイル）
+import type { LookupNumber, DetailEvent, IndexEvent, ProcessProceedEvent } from '@goqoo/trunks/types';
+
+export type ExpenseStatus = '未申請' | '申請中' | '承認済み' | '却下';
+
+export type ExpenseAction = '申請する' | '承認する' | '却下する' | '取り下げる';
+
+export type ExpenseRecord = kintone.types.SavedExpenseFields & {
+  金額: LookupNumber;
+  ステータス: { type: 'STATUS'; value: ExpenseStatus };
+  作業者: { type: 'STATUS_ASSIGNEE'; value: { code: string; name: string }[] };
+};
+
+export type ExpenseDetailEvent = DetailEvent<ExpenseRecord>;
+export type ExpenseIndexEvent = IndexEvent<ExpenseRecord>;
+export type ExpenseProceedEvent = ProcessProceedEvent<ExpenseRecord, ExpenseStatus, ExpenseAction>;
+```
+
+カスタマイズ側での利用：
+
+```ts
+import type { ExpenseDetailEvent, ExpenseProceedEvent } from './dts/expense';
+
+kintone.events.on('app.record.detail.process.proceed', (event: ExpenseProceedEvent) => {
+  if (event.nextStatus.value === '承認済み') {
+    event.record.金額.lookup = 'UPDATE';
+  }
+  return event;
+});
+```
+
+`event.nextStatus.value` は `ExpenseStatus` に絞り込まれ、`.lookup = 'UPDATE'` はルックアップフィールドに対してのみ型チェックを通過します。
+
+### 制約
+
+- **サブテーブル内のルックアップは非対応です。** 検出すると警告を出してスキップし、そのフィールドは dts-gen 出力そのままの型になります。
+- **ルックアップの基底型は `SINGLE_LINE_TEXT` / `NUMBER` のみ対応です。** それ以外の基底型（`LINK`、`DATE` など）は警告を出してスキップします。
+- プロセス管理設定の取得（`GET /k/v1/app/status.json`）にはアプリ管理権限が必要です。API トークンにこの権限がない場合、そのアプリの拡張型生成だけが失敗します（他のアプリの処理は継続されます）。回避するにはそのアプリに `extended: false` を指定してください。
+- `dts/<app>.ts` は実行のたびに全体が上書きされます。手で追加したい型は別ファイルに置き、交差型で合成してください。生成ファイル自体は編集しないでください。
+
+```ts
+// dts/expense-extra.ts（手書き、上書きされない）
+import type { ExpenseRecord } from './expense';
+
+export type MyExpenseRecord = ExpenseRecord & {
+  // 独自の追加分
+};
+```
+
+### v1 からの移行
+
+拡張型生成は v2.0.0 の新機能で、全アプリでデフォルト有効です。v1.x の挙動（dts-gen の出力のみ、`dts/<app>.ts` は生成しない）を維持したい場合は、アプリごとに `extended: false` を指定してください。
+
+```typescript
+apps: {
+  customer: { id: 123, extended: false },
+  order: { id: 456, extended: false },
+},
+```
+
+CLI のワンライナー実行（`--host` / `--app`）では `--no-extended` フラグで同様に無効化できます。
 
 ## 開発
 

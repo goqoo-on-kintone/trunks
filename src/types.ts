@@ -46,7 +46,7 @@ export type AgentOptions = {
 // メイン設定
 export type Config = {
   host: string; // Kintone環境のホスト（例: "example.cybozu.com"）
-  apps: Record<string, number>; // { appName: appId }
+  apps: Record<string, AppConfig>; // { appName: appId } または { appName: { id, extended } }
   auth: Auth;
   proxy?: ProxyConfig;
   basicAuth?: BasicAuthConfig;
@@ -65,6 +65,29 @@ export type Config = {
   // デバッグモード：エラー発生時に詳細情報を表示（デフォルト: false）
   debug?: boolean;
 };
+
+// アプリごとの設定。数値の短縮形も受け付ける。
+export type AppConfig = number | { id: number; extended?: boolean };
+
+// 正規化後のアプリ設定
+export type NormalizedApp = {
+  name: string;
+  id: number;
+  extended: boolean;
+};
+
+// dts-genに渡すCLI引数（client.tsでも認証情報の受け渡しに使う）
+export type DtsGenArgs = Record<string, string | undefined>;
+
+// appsの短縮形を正規化する。extendedのデフォルトはtrue。
+export function normalizeApps(apps: Record<string, AppConfig>): NormalizedApp[] {
+  return Object.entries(apps).map(([name, value]) => {
+    if (typeof value === 'number') {
+      return { name, id: value, extended: true };
+    }
+    return { name, id: value.id, extended: value.extended ?? true };
+  });
+}
 
 // 設定ファイルの型（defineConfigのため）
 export const defineConfig = (config: Config): Config => config;
